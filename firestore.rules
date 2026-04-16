@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function getUserRole() {
+      return request.auth != null ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : null;
+    }
+    function isAdmin() { return getUserRole() == 'admin'; }
+    function isTech() { return getUserRole() == 'tech'; }
+    
+    match /users/{userId} {
+      // Admins and techs can see all users. A user can always see their own profile.
+      allow read: if isTech() || isAdmin() || request.auth.uid == userId;
+      // Admins can update/delete roles freely.
+      allow update, delete: if isAdmin();
+      // Allow a new user to create their own record ONLY if their role is set to 'pending'
+      allow create: if request.auth.uid == userId && request.resource.data.role == 'pending';
+    }
+    
+    match /clients/{clientId} {
+      allow read, update: if isTech() || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+    
+    match /assets/{assetId} {
+      allow read, update: if isTech() || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+    
+    match /audit_logs/{logId} {
+      allow read, write: if false; 
+    }
+    
+    match /time_entries/{entryId} {
+      allow read: if isTech() || isAdmin();
+      allow create: if isTech() && request.resource.data.techId == request.auth.uid;
+      allow update: if isTech() && resource.data.techId == request.auth.uid && resource.data.billing_locked == false;
+      allow write: if isAdmin();
+    }
+    
+    match /tickets/{ticketId} {
+      allow read: if isTech() || isAdmin();
+      allow write: if isTech() || isAdmin(); 
+    }
+  }
+}

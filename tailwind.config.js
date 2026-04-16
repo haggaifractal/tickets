@@ -28,4 +28,43 @@ export default {
         "secondary-container": "#2e3c4f",
         
         // Shadcn UI Semantic Mapping
-        // These map Shadcn components dire
+        // These map Shadcn components directly to the NOC/SOC tokens
+        foreground: "#dee5ff",
+        card: {
+          DEFAULT: "#05183c",
+          foreground: "#dee5ff",
+        },
+        popover: {
+          DEFAULT: "#05183c",
+          foreground: "#dee5ff",
+        },
+        muted: {
+          DEFAULT: "#06122d",
+          foreground: "#91aaeb",
+        },
+        accent: {
+          DEFAULT: "#031d4b",
+          foreground: "#dee5ff",
+        },
+        destructive: {
+          DEFAULT: "#ee7d77",
+          foreground: "#7f2927",
+        },
+        border: "#5b74b1",
+        input: "#2b4680",
+        ring: "#adc6ff",
+      },
+      fontFamily: {
+        "headline": ["Inter", "sans-serif"],
+        "body": ["Inter", "sans-serif"],
+        "sans": ["Inter", "sans-serif"],
+      },
+      borderRadius: {
+        lg: `0.5rem`,
+        md: `calc(0.5rem - 2px)`,
+        sm: "calc(0.5rem - 4px)",
+      }
+    }
+  },
+  plugins: [require("tailwindcss-animate")],
+}

@@ -1,0 +1,21 @@
+{"users": [
+{
+  "localId": "xukPMSqfXoaVtlKStsVpNpSHM1v1",
+  "email": "haggai.fractal@gmail.com",
+  "emailVerified": true,
+  "displayName": "Haggai Fractal",
+  "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocL9tz6mJpt-0mDiIo_SS6V3H5VasDDuxAZH9Usy9ZZRurR1ow=s96-c",
+  "lastSignedInAt": "1776332219636",
+  "createdAt": "1776330867212",
+  "disabled": false,
+  "customAttributes": "{\"role\":\"admin\"}",
+  "providerUserInfo": [
+    {
+      "providerId": "google.com",
+      "rawId": "104275584347853714145",
+      "email": "haggai.fractal@gmail.com",
+      "displayName": "Haggai Fractal",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocL9tz6mJpt-0mDiIo_SS6V3H5VasDDuxAZH9Usy9ZZRurR1ow=s96-c"
+    }
+  ]
+}]}
