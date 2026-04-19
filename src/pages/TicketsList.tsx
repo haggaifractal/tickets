@@ -8,7 +8,7 @@ import { useUsers } from "@/hooks/useUsers";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, MoreHorizontal, Plus, Minus, Edit, Trash2, Pencil, Lock } from "lucide-react";
+import { Loader2, MoreHorizontal, Plus, Minus, Edit, Trash2, Pencil, Lock, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TicketFormDialog } from "@/components/tickets/TicketFormDialog";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
@@ -200,17 +200,20 @@ export function TicketsList() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+  const [defaultDialogTab, setDefaultDialogTab] = useState<'details' | 'timeline'>('details');
 
   const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
 
   const handleOpenCreate = () => {
     setEditingTicket(null);
+    setDefaultDialogTab('details');
     setIsDialogOpen(true);
   };
 
-  const handleOpenEdit = (ticket: Ticket) => {
+  const handleOpenEdit = (ticket: Ticket, tab: 'details' | 'timeline' = 'details') => {
     setEditingTicket(ticket);
+    setDefaultDialogTab(tab);
     setIsDialogOpen(true);
   };
 
@@ -361,6 +364,32 @@ export function TicketsList() {
     {
       accessorKey: "title",
       header: "Issue",
+      cell: ({ row }) => {
+        const title = row.getValue("title") as string;
+        const unreadCount = row.original.unreadNotes?.[user?.uid || ""] || 0;
+        
+        return (
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-foreground">{title}</span>
+            <Badge 
+              variant="outline" 
+              className={`h-5 px-1.5 min-w-[20px] text-[10px] gap-1 flex items-center justify-center cursor-pointer transition-colors ${
+                unreadCount > 0 
+                ? 'bg-destructive text-destructive-foreground border-destructive hover:bg-destructive/90 focus:ring-destructive' 
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted/80 border-transparent shadow-none'
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenEdit(row.original, 'timeline');
+              }}
+              title={unreadCount > 0 ? `${unreadCount} unread notes` : "Open chat timeline"}
+            >
+              <MessageSquare className="h-3 w-3" />
+              {unreadCount > 0 && <span className="font-bold">{unreadCount}</span>}
+            </Badge>
+          </div>
+        );
+      }
     },
     {
       accessorKey: "priority",
@@ -595,6 +624,7 @@ export function TicketsList() {
         ticket={editingTicket}
         onSubmit={onSubmit}
         isLoading={isMutating}
+        defaultTab={defaultDialogTab}
       />
       <ClientFormDialog
         open={isClientDialogOpen}

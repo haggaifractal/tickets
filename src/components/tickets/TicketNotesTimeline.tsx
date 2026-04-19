@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useTicketNotes, useTicketNoteMutations } from "@/hooks/useTicketNotes";
 import { useAuth } from "@/context/AuthContext";
+import { useUsers } from "@/hooks/useUsers";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Send } from "lucide-react";
@@ -14,8 +15,15 @@ interface TicketNotesTimelineProps {
 
 export function TicketNotesTimeline({ ticketId, draftNote, onDraftChange }: TicketNotesTimelineProps) {
   const { data: notes, isLoading } = useTicketNotes(ticketId);
-  const { createNote } = useTicketNoteMutations(ticketId);
+  const { createNote, clearUnreadNotes } = useTicketNoteMutations(ticketId);
   const { user } = useAuth();
+  const { users } = useUsers();
+  
+  React.useEffect(() => {
+    if (user?.uid) {
+      clearUnreadNotes.mutate(user.uid);
+    }
+  }, [user?.uid, ticketId]);
   
   const [localNote, setLocalNote] = useState("");
   
@@ -27,9 +35,14 @@ export function TicketNotesTimeline({ ticketId, draftNote, onDraftChange }: Tick
     if (!newNote.trim()) return;
 
     try {
+      const notifyUserIds = users?.filter(u => u.uid !== user?.uid).map(u => u.uid) || [];
+      
       await createNote.mutateAsync({
-        text: newNote.trim(),
-        createdBy: user?.displayName || user?.email?.split('@')[0] || "Unknown Tech",
+        note: {
+          text: newNote.trim(),
+          createdBy: user?.displayName || user?.email?.split('@')[0] || "Unknown Tech",
+        },
+        notifyUserIds,
       });
       setNewNote("");
     } catch (error) {

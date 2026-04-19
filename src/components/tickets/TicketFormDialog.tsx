@@ -51,6 +51,7 @@ interface TicketFormDialogProps {
   ticket?: Ticket | null;
   onSubmit: (data: Partial<Ticket>) => Promise<void>;
   isLoading?: boolean;
+  defaultTab?: "details" | "timeline";
 }
 
 export function TicketFormDialog({
@@ -59,6 +60,7 @@ export function TicketFormDialog({
   ticket,
   onSubmit,
   isLoading,
+  defaultTab = "details",
   }: TicketFormDialogProps) {
   const { data: clients } = useClients();
   const { data: assets } = useAssets();
@@ -74,6 +76,7 @@ export function TicketFormDialog({
   const [editDesc, setEditDesc] = React.useState("");
   
   const [draftNote, setDraftNote] = React.useState("");
+  const [activeTab, setActiveTab] = React.useState<"details" | "timeline">(defaultTab);
 
   const ticketEntries = React.useMemo(() => {
     if (!entries || !ticket?.id) return [];
@@ -143,7 +146,10 @@ export function TicketFormDialog({
       });
       setDraftNote("");
     }
-  }, [ticket, reset, open, user]);
+    if (open) {
+      setActiveTab(defaultTab);
+    }
+  }, [ticket, reset, open, user, defaultTab]);
 
   const selectedClient = React.useMemo(() => clients?.find(c => c.id === clientIdValue), [clients, clientIdValue]);
 
@@ -461,7 +467,7 @@ export function TicketFormDialog({
         </DialogHeader>
 
         {ticket ? (
-          <Tabs defaultValue="details" className="w-full mt-4">
+          <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full mt-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="timeline">Timeline</TabsTrigger>

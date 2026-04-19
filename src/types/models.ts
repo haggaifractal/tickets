@@ -13,6 +13,8 @@ export interface Ticket {
   contactName?: string;
   approvedBy?: string;
   timeLoggedMinutes?: number;
+  notesCount?: number;
+  unreadNotes?: Record<string, number>;
   createdAt: any; 
   updatedAt: any; 
 }

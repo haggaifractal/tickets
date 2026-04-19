@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { collection, query, onSnapshot, getDocs, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, getDocs, orderBy, doc, serverTimestamp, writeBatch, increment, updateDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { TicketNote } from '@/types/models';
 
@@ -49,18 +49,49 @@ export function useTicketNotes(ticketId: string | undefined) {
 }
 
 export function useTicketNoteMutations(ticketId: string | undefined) {
+  const queryClient = useQueryClient();
+
   const createNote = useMutation({
-    mutationFn: async (note: Omit<TicketNote, 'id' | 'createdAt' | 'ticketId'>) => {
+    mutationFn: async ({ note, notifyUserIds }: { note: Omit<TicketNote, 'id' | 'createdAt' | 'ticketId'>, notifyUserIds: string[] }) => {
       if (!ticketId) throw new Error("Ticket ID required");
       
-      const docRef = await addDoc(collection(db, 'tickets', ticketId, 'notes'), {
+      const batch = writeBatch(db);
+      
+      const newNoteRef = doc(collection(db, 'tickets', ticketId, 'notes'));
+      batch.set(newNoteRef, {
         ...note,
         ticketId,
         createdAt: serverTimestamp()
       });
-      return docRef.id;
+      
+      const ticketRef = doc(db, 'tickets', ticketId);
+      const updates: any = {
+        notesCount: increment(1),
+        updatedAt: serverTimestamp()
+      };
+
+      // Increment unread count for everyone except the author
+      notifyUserIds.forEach(uid => {
+        updates[`unreadNotes.${uid}`] = increment(1);
+      });
+
+      batch.update(ticketRef, updates);
+
+      await batch.commit();
+      return newNoteRef.id;
     }
   });
 
-  return { createNote };
+  const clearUnreadNotes = useMutation({
+    mutationFn: async (userId: string) => {
+      if (!ticketId || !userId) return;
+      
+      const ticketRef = doc(db, 'tickets', ticketId);
+      await updateDoc(ticketRef, {
+        [`unreadNotes.${userId}`]: 0
+      });
+    }
+  });
+
+  return { createNote, clearUnreadNotes };
 }
