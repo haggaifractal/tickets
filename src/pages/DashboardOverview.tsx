@@ -76,50 +76,54 @@ export function DashboardOverview() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-4">
         {METRICS.map((metric) => (
           <Card key={metric.title} className="bg-card border-border hover:border-primary/50 transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-4 md:pb-2">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground line-clamp-1">
                 {metric.title}
               </CardTitle>
-              <metric.icon className={`h-4 w-4 ${metric.color}`} />
+              <metric.icon className={`h-4 w-4 shrink-0 ${metric.color}`} />
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground font-headline">{metric.value}</div>
+            <CardContent className="pb-4 md:pb-6">
+              <div className="text-xl md:text-3xl font-bold text-foreground font-headline truncate">{metric.value}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4 bg-card border-border">
-          <CardHeader>
-            <CardTitle>Recent Tickets requiring attention</CardTitle>
+      <div className="grid gap-4 w-full md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-full lg:col-span-4 bg-card border-border w-full flex flex-col overflow-hidden">
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle>Recent Tickets</CardTitle>
             <CardDescription className="text-muted-foreground">
-              You have {activeTickets.length} tickets pending action.
+              {activeTickets.length} pending action
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Table>
+          <CardContent className="px-0 sm:px-6 w-full max-w-[100vw] overflow-x-auto">
+            <Table className="w-full">
               <TableHeader className="bg-muted/50 rounded-t-lg">
                 <TableRow className="border-border">
-                  <TableHead className="text-muted-foreground">Ticket</TableHead>
-                  <TableHead className="text-muted-foreground">Client ID</TableHead>
-                  <TableHead className="text-muted-foreground">Issue</TableHead>
-                  <TableHead className="text-muted-foreground w-[100px]">Priority</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Status</TableHead>
+                  <TableHead className="text-muted-foreground pl-4 sm:pl-2">ID</TableHead>
+                  <TableHead className="text-muted-foreground">Client</TableHead>
+                  <TableHead className="text-muted-foreground hidden sm:table-cell">Issue</TableHead>
+                  <TableHead className="text-muted-foreground hidden md:table-cell w-[100px]">Priority</TableHead>
+                  <TableHead className="text-muted-foreground text-right pr-4 sm:pr-2">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentActiveTickets.map((ticket) => (
                   <TableRow key={ticket.id} className="border-border hover:bg-muted/30">
-                    <TableCell className="font-medium font-mono text-primary">
-                      {ticket.id?.substring(0, 6).toUpperCase()}
+                    <TableCell className="font-medium font-mono text-primary text-xs pl-4 sm:pl-2">
+                      {ticket.id?.substring(0, 5).toUpperCase()}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{ticket.clientId}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{ticket.title}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-muted-foreground text-xs sm:text-sm">
+                      {ticket.clientId.substring(0,8)}...
+                    </TableCell>
+                    <TableCell className="max-w-[100px] md:max-w-[200px] truncate hidden sm:table-cell text-sm">
+                      {ticket.title}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <Badge variant="outline" className={`
                         ${ticket.priority === 'critical' ? 'border-error text-error bg-error/10' : ''}
                         ${ticket.priority === 'high' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : ''}
@@ -129,13 +133,13 @@ export function DashboardOverview() {
                         {ticket.priority.toUpperCase()}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="secondary" className={`
+                    <TableCell className="text-right pr-4 sm:pr-2">
+                      <Badge variant="secondary" className={`text-[10px] px-1 md:text-xs md:px-2.5
                         ${ticket.status === 'open' ? 'bg-error text-background' : ''}
                         ${ticket.status === 'in_progress' ? 'bg-primary text-background' : ''}
                         ${ticket.status === 'resolved' ? 'bg-secondary text-background border-outline' : ''}
                       `}>
-                        {ticket.status.replace('_', ' ').toUpperCase()}
+                        {ticket.status.replace('_', ' ').substring(0, 6).toUpperCase()}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -143,7 +147,7 @@ export function DashboardOverview() {
                 {recentActiveTickets.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                      No active tickets found! Clean inbox.
+                      No active tickets!
                     </TableCell>
                   </TableRow>
                 )}
@@ -152,7 +156,7 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-3 bg-card border-border flex flex-col">
+        <Card className="hidden lg:flex col-span-3 bg-card border-border flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart2 className="w-5 h-5" />

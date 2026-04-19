@@ -339,6 +339,7 @@ export function TicketsList() {
     {
       accessorKey: "id",
       header: "ID",
+      meta: { className: "hidden lg:table-cell" },
       cell: ({ row }) => {
         const id = row.getValue("id") as string;
         return <div className="font-medium font-mono text-primary">{id.substring(0, 8).toUpperCase()}</div>;
@@ -346,14 +347,15 @@ export function TicketsList() {
     },
     {
       accessorKey: "clientId",
-      header: "Client Name",
+      header: "Client",
+      meta: { className: "w-[80px] md:w-auto" },
       cell: ({ row }) => {
         const clientId = row.getValue("clientId") as string;
         const client = clients?.find(c => c.id === clientId);
         return (
           <Button 
             variant="link" 
-            className="p-0 h-auto font-normal text-muted-foreground hover:text-primary"
+            className="p-0 h-auto font-normal text-muted-foreground hover:text-primary max-w-[80px] md:max-w-none truncate inline-block"
             onClick={() => handleClientClick(clientId)}
           >
             {client?.name || clientId}
@@ -364,16 +366,17 @@ export function TicketsList() {
     {
       accessorKey: "title",
       header: "Issue",
+      meta: { className: "max-w-[120px] md:max-w-none" },
       cell: ({ row }) => {
         const title = row.getValue("title") as string;
         const unreadCount = row.original.unreadNotes?.[user?.uid || ""] || 0;
         
         return (
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-foreground">{title}</span>
+          <div className="flex items-center gap-1 md:gap-2">
+            <span className="font-medium text-foreground text-sm md:text-base line-clamp-2 md:line-clamp-none leading-snug">{title}</span>
             <Badge 
               variant="outline" 
-              className={`h-5 px-1.5 min-w-[20px] text-[10px] gap-1 flex items-center justify-center cursor-pointer transition-colors ${
+              className={`h-5 px-1.5 min-w-[20px] text-[10px] gap-1 flex items-center justify-center cursor-pointer transition-colors shrink-0 ${
                 unreadCount > 0 
                 ? 'bg-destructive text-destructive-foreground border-destructive hover:bg-destructive/90 focus:ring-destructive' 
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted/80 border-transparent shadow-none'
@@ -384,7 +387,7 @@ export function TicketsList() {
               }}
               title={unreadCount > 0 ? `${unreadCount} unread notes` : "Open chat timeline"}
             >
-              <MessageSquare className="h-3 w-3" />
+              <MessageSquare className="h-3 w-3 shrink-0" />
               {unreadCount > 0 && <span className="font-bold">{unreadCount}</span>}
             </Badge>
           </div>
@@ -394,6 +397,7 @@ export function TicketsList() {
     {
       accessorKey: "priority",
       header: "Priority",
+      meta: { className: "hidden lg:table-cell" },
       cell: ({ row }) => {
         const priority = row.getValue("priority") as string;
         const ticket = row.original;
@@ -422,6 +426,7 @@ export function TicketsList() {
     {
       accessorKey: "status",
       header: "Status",
+      meta: { className: "hidden sm:table-cell" },
       cell: ({ row }) => {
         const status = row.getValue("status") as string;
         const ticket = row.original;
@@ -433,7 +438,7 @@ export function TicketsList() {
                 ${status === 'in_progress' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}
                 ${status === 'resolved' ? 'bg-secondary text-secondary-foreground border-border' : ''}
               `}>
-                 {status.replace('_', ' ').toUpperCase()}
+                 {status.replace('_', ' ').substring(0, 6).toUpperCase()}
               </Badge>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
@@ -448,6 +453,7 @@ export function TicketsList() {
     {
       accessorKey: "assignedTechId",
       header: "Tech Name",
+      meta: { className: "hidden md:table-cell" },
       cell: ({ row }) => {
         const ticket = row.original;
         const techId = row.getValue("assignedTechId") as string;
@@ -480,7 +486,8 @@ export function TicketsList() {
     },
     {
       accessorKey: "timeLoggedMinutes",
-      header: "Time Logged",
+      header: "Time",
+      meta: { className: "w-[130px] pr-0 md:pr-4" },
       cell: ({ row }) => {
         const ticket = row.original;
         const currentSavedMinutes = Number(row.getValue("timeLoggedMinutes") || 0);
@@ -550,74 +557,78 @@ export function TicketsList() {
           </Button>
         </div>
         
-        <div className="flex items-center gap-4 bg-muted/30 p-4 rounded-lg border border-border">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-4 bg-muted/30 p-2 md:p-4 rounded-lg border border-border">
           <Input 
             placeholder="Search tickets..." 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
-            className="max-w-xs bg-background" 
+            className="w-full md:max-w-xs bg-background" 
           />
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" className="w-[180px] justify-between bg-background font-normal border-input" />}>
-              {statusFilter.length === 0 ? "All Statuses" : `${statusFilter.length} Statuses Selected`}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[180px]">
-              <DropdownMenuCheckboxItem 
-                checked={statusFilter.length === 0} 
-                onCheckedChange={() => setStatusFilter([])}
-              >
-                All Statuses
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              {['open', 'in_progress', 'resolved'].map((status) => (
-                <DropdownMenuCheckboxItem
-                  key={status}
-                  checked={statusFilter.includes(status)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setStatusFilter([...statusFilter, status]);
-                    } else {
-                      setStatusFilter(statusFilter.filter(s => s !== status));
-                    }
-                  }}
+          <div className="flex gap-2 w-full md:w-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline" className="flex-1 md:w-[180px] justify-between bg-background font-normal border-input text-xs sm:text-sm px-2 sm:px-4" />}>
+                {statusFilter.length === 0 ? "All Statuses" : `${statusFilter.length} Statuses`}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[180px]">
+                <DropdownMenuCheckboxItem 
+                  checked={statusFilter.length === 0} 
+                  onCheckedChange={() => setStatusFilter([])}
                 >
-                  {status === 'in_progress' ? 'In Progress' : status.charAt(0).toUpperCase() + status.slice(1)}
+                  All Statuses
                 </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" className="w-[180px] justify-between bg-background font-normal border-input" />}>
-              {techFilter.length === 0 ? "All Technicians" : `${techFilter.length} Techs Selected`}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[180px]">
-              <DropdownMenuCheckboxItem 
-                checked={techFilter.length === 0} 
-                onCheckedChange={() => setTechFilter([])}
-              >
-                All Technicians
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              {techs.map((techName) => (
-                <DropdownMenuCheckboxItem
-                  key={techName}
-                  checked={techFilter.includes(techName)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setTechFilter([...techFilter, techName]);
-                    } else {
-                      setTechFilter(techFilter.filter(t => t !== techName));
-                    }
-                  }}
+                <DropdownMenuSeparator />
+                {['open', 'in_progress', 'resolved'].map((status) => (
+                  <DropdownMenuCheckboxItem
+                    key={status}
+                    checked={statusFilter.includes(status)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setStatusFilter([...statusFilter, status]);
+                      } else {
+                        setStatusFilter(statusFilter.filter(s => s !== status));
+                      }
+                    }}
+                  >
+                    {status === 'in_progress' ? 'In Progress' : status.charAt(0).toUpperCase() + status.slice(1)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline" className="flex-1 md:w-[180px] justify-between bg-background font-normal border-input text-xs sm:text-sm px-2 sm:px-4" />}>
+                {techFilter.length === 0 ? "All Techs" : `${techFilter.length} Techs`}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[180px]">
+                <DropdownMenuCheckboxItem 
+                  checked={techFilter.length === 0} 
+                  onCheckedChange={() => setTechFilter([])}
                 >
-                  {techName}
+                  All Technicians
                 </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuSeparator />
+                {techs.map((techName) => (
+                  <DropdownMenuCheckboxItem
+                    key={techName}
+                    checked={techFilter.includes(techName)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setTechFilter([...techFilter, techName]);
+                      } else {
+                        setTechFilter(techFilter.filter(t => t !== techName));
+                      }
+                    }}
+                  >
+                    {techName}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
-      <DataTable columns={columns} data={filteredTickets} />
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <DataTable columns={columns} data={filteredTickets} />
+      </div>
       <TicketFormDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}

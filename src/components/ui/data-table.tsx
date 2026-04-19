@@ -37,8 +37,9 @@ export function DataTable<TData, TValue>({
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="border-border">
               {headerGroup.headers.map((header) => {
+                const customClass = (header.column.columnDef.meta as Record<string, any>)?.className || ""
                 return (
-                  <TableHead key={header.id} className="text-muted-foreground">
+                  <TableHead key={header.id} className={`text-muted-foreground ${customClass}`}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -59,11 +60,14 @@ export function DataTable<TData, TValue>({
                 data-state={row.getIsSelected() && "selected"}
                 className="border-border hover:bg-muted/30"
               >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const customClass = (cell.column.columnDef.meta as Record<string, any>)?.className || ""
+                  return (
+                    <TableCell key={cell.id} className={customClass}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  )
+                })}
               </TableRow>
             ))
           ) : (
