@@ -48,7 +48,7 @@ export function ClientsList() {
   const onSubmit = async (data: Partial<Client>) => {
     try {
       if (editingClient?.id) {
-        await updateClient.mutateAsync({ id: editingClient.id, data });
+        await updateClient.mutateAsync({ id: editingClient.id, ...data });
         toast.success("Client updated successfully");
       } else {
         await createClient.mutateAsync(data as Omit<Client, "id">);

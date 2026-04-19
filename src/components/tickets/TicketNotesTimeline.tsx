@@ -8,14 +8,19 @@ import { format } from "date-fns";
 
 interface TicketNotesTimelineProps {
   ticketId: string;
+  draftNote?: string;
+  onDraftChange?: (note: string) => void;
 }
 
-export function TicketNotesTimeline({ ticketId }: TicketNotesTimelineProps) {
+export function TicketNotesTimeline({ ticketId, draftNote, onDraftChange }: TicketNotesTimelineProps) {
   const { data: notes, isLoading } = useTicketNotes(ticketId);
   const { createNote } = useTicketNoteMutations(ticketId);
   const { user } = useAuth();
   
-  const [newNote, setNewNote] = useState("");
+  const [localNote, setLocalNote] = useState("");
+  
+  const newNote = draftNote !== undefined ? draftNote : localNote;
+  const setNewNote = onDraftChange || setLocalNote;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

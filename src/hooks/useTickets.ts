@@ -70,7 +70,7 @@ export function useTicketMutations() {
   });
 
   const logTicketTime = useMutation({
-    mutationFn: async ({ ticketId, additionalMinutes }: { ticketId: string; additionalMinutes: number }) => {
+    mutationFn: async ({ ticketId, additionalMinutes, description }: { ticketId: string; additionalMinutes: number; description: string }) => {
       const { writeBatch, doc, collection, serverTimestamp, increment } = await import('firebase/firestore');
       const { auth } = await import('@/config/firebase');
       
@@ -94,6 +94,7 @@ export function useTicketMutations() {
           techId: user.uid,
           durationMinutes: additionalMinutes,
           date: serverTimestamp(),
+          description,
           billing_locked: false 
         });
       }
@@ -102,5 +103,47 @@ export function useTicketMutations() {
     }
   });
 
-  return { createTicket, updateTicket, deleteTicket, logTicketTime };
+  const updateTicketTimeEntry = useMutation({
+    mutationFn: async ({ entryId, ticketId, oldMinutes, newMinutes, newDescription }: { entryId: string; ticketId: string; oldMinutes: number; newMinutes: number; newDescription?: string }) => {
+      const { writeBatch, doc, increment } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      
+      const diff = newMinutes - oldMinutes;
+      
+      if (diff !== 0) {
+        const ticketRef = doc(db, 'tickets', ticketId);
+        batch.update(ticketRef, {
+          timeLoggedMinutes: increment(diff)
+        });
+      }
+
+      const entryRef = doc(db, 'time_entries', entryId);
+      const entryUpdates: any = { durationMinutes: newMinutes };
+      if (newDescription !== undefined) {
+         entryUpdates.description = newDescription;
+      }
+      batch.update(entryRef, entryUpdates);
+      
+      await batch.commit();
+    }
+  });
+
+  const deleteTicketTimeEntry = useMutation({
+    mutationFn: async ({ entryId, ticketId, minutes }: { entryId: string; ticketId: string; minutes: number }) => {
+      const { writeBatch, doc, increment } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      
+      const ticketRef = doc(db, 'tickets', ticketId);
+      batch.update(ticketRef, {
+        timeLoggedMinutes: increment(-minutes)
+      });
+
+      const entryRef = doc(db, 'time_entries', entryId);
+      batch.delete(entryRef);
+      
+      await batch.commit();
+    }
+  });
+
+  return { createTicket, updateTicket, deleteTicket, logTicketTime, updateTicketTimeEntry, deleteTicketTimeEntry };
 }

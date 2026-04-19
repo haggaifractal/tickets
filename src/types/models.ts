@@ -10,6 +10,8 @@ export interface Ticket {
   clientId: string;
   assetId?: string;
   assignedTechId?: string;
+  contactName?: string;
+  approvedBy?: string;
   timeLoggedMinutes?: number;
   createdAt: any; 
   updatedAt: any; 
@@ -47,6 +49,7 @@ export interface Client {
   contactPhone: string;
   status: ClientStatus;
   priorityCustomerId?: string; // Mapped ID from Priority ERP (e.g. C00001)
+  authorizedApprovers?: string[]; // List of names authorized to approve billing/support
 }
 
 export type UserRole = 'admin' | 'tech' | 'pending';
@@ -67,6 +70,7 @@ export interface TimeEntry {
   techId: string;
   durationMinutes: number;
   date: any;
+  description: string;
   billing_locked: boolean;
   priority_synced?: boolean; // True if successfully synced to priority
   priority_error?: string; // Error log if priority sync failed

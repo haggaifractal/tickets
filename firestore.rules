@@ -10,8 +10,12 @@ service cloud.firestore {
     match /users/{userId} {
       // Admins and techs can see all users. A user can always see their own profile.
       allow read: if isTech() || isAdmin() || request.auth.uid == userId;
-      // Admins can update/delete roles freely.
-      allow update, delete: if isAdmin();
+      // Admins can delete freely.
+      allow delete: if isAdmin();
+      // Admins can update all fields. 
+      // Users can update their own profile EXCEPT to elevate their role.
+      allow update: if isAdmin() || 
+        (request.auth.uid == userId && request.resource.data.role == resource.data.role);
       // Allow a new user to create their own record ONLY if their role is set to 'pending'
       allow create: if request.auth.uid == userId && request.resource.data.role == 'pending';
     }
@@ -40,6 +44,10 @@ service cloud.firestore {
     match /tickets/{ticketId} {
       allow read: if isTech() || isAdmin();
       allow write: if isTech() || isAdmin(); 
+      
+      match /notes/{noteId} {
+        allow read, write: if isTech() || isAdmin();
+      }
     }
   }
 }

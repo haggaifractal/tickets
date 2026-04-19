@@ -8,51 +8,39 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Core Design System Tokens
-        "primary": "#adc6ff",
-        "primary-container": "#004395",
-        "on-primary": "#003d88",
-        "background": "#060e20",
-        "surface": "#060e20",
-        "surface-container-lowest": "#000000",
-        "surface-container-low": "#06122d",
-        "surface-container": "#05183c",
-        "surface-container-high": "#031d4b",
-        "on-surface": "#dee5ff",
-        "on-surface-variant": "#91aaeb",
-        "outline": "#5b74b1",
-        "outline-variant": "#2b4680",
-        "error": "#ee7d77",
-        "error-container": "#7f2927",
-        "secondary": "#909fb5",
-        "secondary-container": "#2e3c4f",
-        
-        // Shadcn UI Semantic Mapping
-        // These map Shadcn components directly to the NOC/SOC tokens
-        foreground: "#dee5ff",
-        card: {
-          DEFAULT: "#05183c",
-          foreground: "#dee5ff",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
-        popover: {
-          DEFAULT: "#05183c",
-          foreground: "#dee5ff",
-        },
-        muted: {
-          DEFAULT: "#06122d",
-          foreground: "#91aaeb",
-        },
-        accent: {
-          DEFAULT: "#031d4b",
-          foreground: "#dee5ff",
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
         },
         destructive: {
-          DEFAULT: "#ee7d77",
-          foreground: "#7f2927",
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
         },
-        border: "#5b74b1",
-        input: "#2b4680",
-        ring: "#adc6ff",
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
       },
       fontFamily: {
         "headline": ["Inter", "sans-serif"],
@@ -60,9 +48,9 @@ export default {
         "sans": ["Inter", "sans-serif"],
       },
       borderRadius: {
-        lg: `0.5rem`,
-        md: `calc(0.5rem - 2px)`,
-        sm: "calc(0.5rem - 4px)",
+        lg: `var(--radius)`,
+        md: `calc(var(--radius) - 2px)`,
+        sm: "calc(var(--radius) - 4px)",
       }
     }
   },

@@ -24,9 +24,11 @@ import { Ticket } from "@/types/models";
 import { useClients } from "@/hooks/useClients";
 import { useAssets } from "@/hooks/useAssets";
 import { useAuth } from "@/context/AuthContext";
-import { useDebounceTimeLogger } from "@/hooks/useDebounceTimeLogger";
+import { useTicketMutations } from "@/hooks/useTickets";
+import { useTimeEntries } from "@/hooks/useTimeEntries";
 import { TicketNotesTimeline } from "./TicketNotesTimeline";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Pencil, Trash2, Lock } from "lucide-react";
+import { format } from "date-fns";
 
 const ticketSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters."),
@@ -36,6 +38,8 @@ const ticketSchema = z.object({
   clientId: z.string().min(1, "Client is required."),
   assetId: z.string().optional(),
   assignedTechId: z.string().optional(),
+  contactName: z.string().optional(),
+  approvedBy: z.string().optional(),
   timeLoggedMinutes: z.coerce.number().min(0, "Time cannot be negative.").optional(),
 });
 
@@ -59,7 +63,22 @@ export function TicketFormDialog({
   const { data: clients } = useClients();
   const { data: assets } = useAssets();
   const { user } = useAuth();
-  const { addTime, pendingLogs } = useDebounceTimeLogger(5000);
+  const { logTicketTime, updateTicketTimeEntry, deleteTicketTimeEntry } = useTicketMutations();
+  const { data: entries } = useTimeEntries();
+
+  const [logMinutes, setLogMinutes] = React.useState<number>(15);
+  const [logDesc, setLogDesc] = React.useState("");
+
+  const [editingEntryId, setEditingEntryId] = React.useState<string | null>(null);
+  const [editMinutes, setEditMinutes] = React.useState<number>(15);
+  const [editDesc, setEditDesc] = React.useState("");
+  
+  const [draftNote, setDraftNote] = React.useState("");
+
+  const ticketEntries = React.useMemo(() => {
+    if (!entries || !ticket?.id) return [];
+    return entries.filter(e => e.ticketId === ticket.id).sort((a,b) => b.date.getTime() - a.date.getTime());
+  }, [entries, ticket?.id]);
 
   const {
     register,
@@ -78,6 +97,8 @@ export function TicketFormDialog({
       clientId: "",
       assetId: "none",
       assignedTechId: "",
+      contactName: "",
+      approvedBy: "",
       timeLoggedMinutes: 0,
     },
   });
@@ -102,8 +123,11 @@ export function TicketFormDialog({
         clientId: ticket.clientId,
         assetId: ticket.assetId || "none",
         assignedTechId: ticket.assignedTechId || "",
+        contactName: ticket.contactName || "",
+        approvedBy: ticket.approvedBy || "",
         timeLoggedMinutes: ticket.timeLoggedMinutes || 0,
       });
+      setDraftNote("");
     } else {
       reset({
         title: "",
@@ -113,10 +137,24 @@ export function TicketFormDialog({
         clientId: "",
         assetId: "none",
         assignedTechId: user?.displayName || user?.email?.split('@')[0] || "",
+        contactName: "",
+        approvedBy: "",
         timeLoggedMinutes: 0,
       });
+      setDraftNote("");
     }
   }, [ticket, reset, open, user]);
+
+  const selectedClient = React.useMemo(() => clients?.find(c => c.id === clientIdValue), [clients, clientIdValue]);
+
+  React.useEffect(() => {
+    // Auto-fill contact name from client defaults if it's currently empty
+    if (selectedClient && !watch("contactName")) {
+       if (selectedClient.contactName) {
+          setValue("contactName", selectedClient.contactName);
+       }
+    }
+  }, [selectedClient, setValue, watch]);
 
   const onFormSubmit = handleSubmit(async (data) => {
     const submitData: Partial<Ticket> = { ...data };
@@ -163,21 +201,27 @@ export function TicketFormDialog({
       </div>
 
       {clientIdValue && (
-        <div className="space-y-2">
-          <Label htmlFor="assetId">Related Asset (Optional)</Label>
-          <Select value={assetIdValue} onValueChange={(val: string) => setValue("assetId", val)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select Asset (Optional)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">-- None --</SelectItem>
-              {clientAssets.map((asset) => (
-                <SelectItem key={asset.id} value={asset.id!}>
-                  {asset.name} ({asset.type})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="assetId">Related Asset (Optional)</Label>
+            <Select value={assetIdValue} onValueChange={(val: string) => setValue("assetId", val)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Asset (Optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">-- None --</SelectItem>
+                {clientAssets.map((asset) => (
+                  <SelectItem key={asset.id} value={asset.id!}>
+                    {asset.name} ({asset.type})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="contactName">Reported By (Contact Person)</Label>
+            <Input id="contactName" {...register("contactName")} placeholder="e.g. Yossi Cohen" />
+          </div>
         </div>
       )}
 
@@ -226,62 +270,177 @@ export function TicketFormDialog({
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="assignedTechId">Assigned Tech Name</Label>
-          <Input
-            id="assignedTechId"
-            {...register("assignedTechId")}
-            placeholder="Auto-assigned"
-            readOnly
-            className="bg-muted cursor-not-allowed"
-          />
+        <div className="space-y-4">
+           <div className="space-y-2">
+             <Label htmlFor="assignedTechId">Assigned Tech Name</Label>
+             <Input
+               id="assignedTechId"
+               {...register("assignedTechId")}
+               placeholder="Auto-assigned"
+               readOnly
+               className="bg-muted cursor-not-allowed"
+             />
+           </div>
+           <div className="space-y-2">
+             <Label htmlFor="approvedBy">Approved By (Client Sign-off)</Label>
+             <Input 
+                id="approvedBy" 
+                list="approversList" 
+                {...register("approvedBy")} 
+                placeholder="Name of approver..." 
+             />
+             <datalist id="approversList">
+                {selectedClient?.authorizedApprovers?.map(name => (
+                   <option key={name} value={name} />
+                ))}
+             </datalist>
+           </div>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="timeLoggedMinutes">Time Logged (Minutes)</Label>
-          <div className="flex items-center space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                if (ticket?.id) {
-                   addTime(ticket.id, -15);
-                } else {
-                   setValue("timeLoggedMinutes", Math.max(0, timeLoggedValue - 15));
-                }
-              }}
-            >
-              <Minus className="h-4 w-4" />
-            </Button>
-            <div className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm items-center justify-center font-medium">
-              {ticket?.id ? (
-                <span>
-                  {ticket.timeLoggedMinutes || 0}m {pendingLogs[ticket.id] ? <span className={(pendingLogs[ticket.id] > 0 ? "text-primary" : "text-error")}>({pendingLogs[ticket.id] > 0 ? '+' : ''}{pendingLogs[ticket.id]}m pending)</span> : ''}
-                </span>
-              ) : (
-                <span>{timeLoggedValue}m</span>
-              )}
+          <Label>Quick Time Logging</Label>
+          {ticket?.id ? (
+            <div className="flex flex-col space-y-2 border rounded-md p-3 bg-muted/30">
+               <div className="flex space-x-2 items-center">
+                 <div className="flex items-center justify-between border rounded-md p-1 bg-background w-32 shrink-0">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setLogMinutes(p => Math.max(15, p - 15))} disabled={logMinutes <= 15} className="h-8 w-8 p-0">
+                       <Minus className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm font-medium w-16 text-center">{logMinutes}m</div>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setLogMinutes(p => p + 15)} className="h-8 w-8 p-0">
+                       <Plus className="h-4 w-4" />
+                    </Button>
+                 </div>
+                 <Input 
+                   value={logDesc}
+                   onChange={e => setLogDesc(e.target.value)}
+                   placeholder="Description of work done..."
+                   className="flex-1"
+                 />
+               </div>
+               <Button
+                 type="button"
+                 variant="secondary"
+                 disabled={logMinutes <= 0 || logDesc.trim().length === 0}
+                 onClick={async () => {
+                    if (logMinutes > 0 && logDesc.trim().length > 0) {
+                      await logTicketTime.mutateAsync({ ticketId: ticket.id!, additionalMinutes: logMinutes, description: logDesc });
+                      setLogMinutes(15);
+                      setLogDesc("");
+                    }
+                 }}
+               >
+                 Log Time
+               </Button>
+               <div className="text-xs text-muted-foreground mt-1">
+                 Total logged so far: {ticket.timeLoggedMinutes || 0}m
+               </div>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                if (ticket?.id) {
-                  addTime(ticket.id, 15);
-                } else {
-                  setValue("timeLoggedMinutes", timeLoggedValue + 15);
-                }
-              }}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          {errors.timeLoggedMinutes && (
-            <p className="text-sm text-destructive">{errors.timeLoggedMinutes.message}</p>
+          ) : (
+             <div className="text-sm text-muted-foreground">Save the ticket first to enable quick time logging.</div>
           )}
         </div>
       </div>
+
+      {ticket?.id && ticketEntries.length > 0 && (
+         <div className="space-y-2 mt-4 pt-4 border-t">
+           <Label className="text-primary font-semibold">Your Time Logs</Label>
+           <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2">
+             {ticketEntries.map(entry => {
+               const isLocked = entry.billing_locked;
+               const canEdit = !isLocked && user?.uid === entry.techId;
+               const isEditing = editingEntryId === entry.id;
+
+               return (
+                 <div key={entry.id} className="text-sm border rounded-md p-3 bg-background relative flex flex-col space-y-2">
+                    {isEditing ? (
+                       <div className="flex flex-col space-y-2 border bg-muted/20 p-2 rounded-md">
+                         <div className="flex space-x-2 items-center">
+                           <div className="flex items-center justify-between border rounded-md p-1 bg-background w-32 shrink-0">
+                              <Button type="button" variant="ghost" size="sm" onClick={() => setEditMinutes(p => Math.max(15, p - 15))} disabled={editMinutes <= 15} className="h-8 w-8 p-0">
+                                 <Minus className="h-4 w-4" />
+                              </Button>
+                              <div className="text-sm font-medium w-16 text-center">{editMinutes}m</div>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => setEditMinutes(p => p + 15)} className="h-8 w-8 p-0">
+                                 <Plus className="h-4 w-4" />
+                              </Button>
+                           </div>
+                           <Input 
+                             value={editDesc}
+                             onChange={e => setEditDesc(e.target.value)}
+                             placeholder="Description..."
+                             className="flex-1"
+                           />
+                         </div>
+                         <div className="flex justify-end space-x-2">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setEditingEntryId(null)}>Cancel</Button>
+                            <Button type="button" variant="default" size="sm" onClick={async () => {
+                               if (editMinutes > 0 && editDesc.trim().length > 0) {
+                                 await updateTicketTimeEntry.mutateAsync({
+                                    entryId: entry.id,
+                                    ticketId: ticket.id!,
+                                    oldMinutes: entry.durationMinutes,
+                                    newMinutes: editMinutes,
+                                    newDescription: editDesc.trim()
+                                 });
+                                 setEditingEntryId(null);
+                               }
+                            }}>Save Log</Button>
+                         </div>
+                       </div>
+                    ) : (
+                       <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-semibold text-primary">{entry.durationMinutes}m <span className="text-muted-foreground font-normal ml-2">{format(entry.date, "MMM d, HH:mm")}</span></div>
+                            <div className="text-foreground mt-1 whitespace-pre-wrap">{entry.description}</div>
+                          </div>
+                          <div className="flex items-center space-x-1 shrink-0">
+                             {isLocked ? (
+                               <div className="flex items-center text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                 <Lock className="h-3 w-3 mr-1" /> Locked
+                               </div>
+                             ) : canEdit && (
+                               <>
+                                 <Button 
+                                   type="button" 
+                                   variant="ghost" 
+                                   size="sm" 
+                                   className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                                   onClick={() => {
+                                     setEditingEntryId(entry.id);
+                                     setEditMinutes(entry.durationMinutes);
+                                     setEditDesc(entry.description || "");
+                                   }}
+                                 >
+                                   <Pencil className="h-4 w-4" />
+                                 </Button>
+                                 <Button 
+                                   type="button" 
+                                   variant="ghost" 
+                                   size="sm" 
+                                   className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                   onClick={async () => {
+                                     if(confirm("Delete this time log?")) {
+                                        await deleteTicketTimeEntry.mutateAsync({
+                                          entryId: entry.id,
+                                          ticketId: ticket.id!,
+                                          minutes: entry.durationMinutes
+                                        });
+                                     }
+                                   }}
+                                 >
+                                   <Trash2 className="h-4 w-4" />
+                                 </Button>
+                               </>
+                             )}
+                          </div>
+                       </div>
+                    )}
+                 </div>
+               );
+             })}
+           </div>
+         </div>
+      )}
 
       <div className="flex justify-end space-x-2 pt-4">
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
@@ -311,7 +470,11 @@ export function TicketFormDialog({
               {formContent}
             </TabsContent>
             <TabsContent value="timeline" className="mt-4">
-              <TicketNotesTimeline ticketId={ticket.id!} />
+              <TicketNotesTimeline 
+                ticketId={ticket.id!} 
+                draftNote={draftNote} 
+                onDraftChange={setDraftNote} 
+              />
             </TabsContent>
           </Tabs>
         ) : (

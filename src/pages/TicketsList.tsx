@@ -1,14 +1,14 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTickets, useTicketMutations } from "@/hooks/useTickets";
 import { useClients, useClientMutations } from "@/hooks/useClients";
-import { useDebounceTimeLogger } from "@/hooks/useDebounceTimeLogger";
+
 import { Ticket, Client } from "@/types/models";
 import { useAuth } from "@/context/AuthContext";
 import { useUsers } from "@/hooks/useUsers";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, MoreHorizontal, Plus, Minus, Edit, Trash2 } from "lucide-react";
+import { Loader2, MoreHorizontal, Plus, Minus, Edit, Trash2, Pencil, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TicketFormDialog } from "@/components/tickets/TicketFormDialog";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
@@ -31,9 +31,164 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { useTimeEntries } from "@/hooks/useTimeEntries";
+import { format } from "date-fns";
+
+const TimeLoggedCell = ({ ticket, currentSavedMinutes, logTicketTime, updateTicketTimeEntry, deleteTicketTimeEntry, user }: any) => {
+  const [open, setOpen] = useState(false);
+  const [minutesToAdd, setMinutesToAdd] = useState(15);
+  const [quickDesc, setQuickDesc] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: entries } = useTimeEntries();
+  const ticketEntries = useMemo(() => {
+    if (!entries || !ticket?.id) return [];
+    return entries.filter((e: any) => e.ticketId === ticket.id).sort((a: any,b: any) => b.date.getTime() - a.date.getTime());
+  }, [entries, ticket?.id]);
+
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editMinutes, setEditMinutes] = useState(15);
+  const [editDesc, setEditDesc] = useState("");
+
+  const h = Math.floor(currentSavedMinutes / 60);
+  const m = currentSavedMinutes % 60;
+
+  const handleMinus = () => setMinutesToAdd(prev => Math.max(15, prev - 15));
+  const handlePlus = () => setMinutesToAdd(prev => prev + 15);
+
+  const handleQuickLog = async () => {
+    if (minutesToAdd > 0 && quickDesc.trim()) {
+      setIsSubmitting(true);
+      try {
+        await logTicketTime.mutateAsync({ 
+          ticketId: ticket.id, 
+          additionalMinutes: minutesToAdd, 
+          description: quickDesc.trim() 
+        });
+        toast.success("Time logged successfully.");
+        setOpen(false);
+        setQuickDesc("");
+        setMinutesToAdd(15);
+      } catch (err: any) {
+        toast.error("Failed to log time", { description: err.message });
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 justify-start min-w-[120px]">
+      <span className="text-sm font-medium cursor-default shrink-0">
+        {h > 0 ? `${h}h ${m}m` : `${m}m`}
+      </span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-primary rounded-full">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[340px] p-4" side="right" align="start">
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm leading-none">Quick Time Log</h4>
+            <p className="text-xs text-muted-foreground">Add time directly to this ticket.</p>
+            
+            <div className="grid gap-4 mt-2">
+              <div className="flex items-center justify-between border rounded-md p-1 bg-muted/20">
+                <Button variant="ghost" size="sm" onClick={handleMinus} disabled={minutesToAdd <= 15} className="h-8 w-8 p-0">
+                   <Minus className="h-4 w-4" />
+                </Button>
+                <div className="text-sm font-medium w-16 text-center">{minutesToAdd}m</div>
+                <Button variant="ghost" size="sm" onClick={handlePlus} className="h-8 w-8 p-0">
+                   <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-4 items-center gap-2">
+                <Label htmlFor={`desc-${ticket.id}`} className="text-xs text-right">Desc</Label>
+                <Input
+                  id={`desc-${ticket.id}`}
+                  className="col-span-3 h-8 text-sm"
+                  placeholder="Work done..."
+                  value={quickDesc}
+                  onChange={(e) => setQuickDesc(e.target.value)}
+                />
+              </div>
+              <Button 
+                size="sm" 
+                className="mt-2 text-xs h-8" 
+                disabled={isSubmitting || !quickDesc.trim() || minutesToAdd <= 0}
+                onClick={handleQuickLog}
+              >
+                {isSubmitting ? "Logging..." : "Log Time"}
+              </Button>
+            </div>
+
+            {ticketEntries.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                 <h4 className="font-medium text-xs mb-2 text-muted-foreground">Recent Logs</h4>
+                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                   {ticketEntries.map((entry: any) => {
+                      const isLocked = entry.billing_locked;
+                      const canEdit = !isLocked && user?.uid === entry.techId;
+                      const isEditing = editingEntryId === entry.id;
+
+                      return (
+                         <div key={entry.id} className="text-xs border rounded p-2 bg-muted/20 flex flex-col gap-2">
+                            {isEditing ? (
+                               <div className="flex flex-col gap-2">
+                                  <div className="flex items-center justify-between border rounded p-1 bg-background w-24">
+                                     <Button variant="ghost" size="sm" onClick={() => setEditMinutes(p => Math.max(15, p - 15))} disabled={editMinutes <= 15} className="h-4 w-4 p-0"><Minus className="h-3 w-3" /></Button>
+                                     <span className="font-medium">{editMinutes}m</span>
+                                     <Button variant="ghost" size="sm" onClick={() => setEditMinutes(p => p + 15)} className="h-4 w-4 p-0"><Plus className="h-3 w-3" /></Button>
+                                  </div>
+                                  <Input value={editDesc} onChange={e => setEditDesc(e.target.value)} className="h-6 text-xs" />
+                                  <div className="flex justify-end gap-1">
+                                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setEditingEntryId(null)}>Cancel</Button>
+                                    <Button size="sm" className="h-6 px-2 text-xs" disabled={editMinutes <= 0 || !editDesc.trim()} onClick={async () => {
+                                       await updateTicketTimeEntry.mutateAsync({ entryId: entry.id, ticketId: ticket.id, oldMinutes: entry.durationMinutes, newMinutes: editMinutes, newDescription: editDesc.trim() });
+                                       setEditingEntryId(null);
+                                    }}>Save</Button>
+                                  </div>
+                               </div>
+                            ) : (
+                               <div className="flex justify-between items-start">
+                                 <div>
+                                   <div className="font-semibold text-primary">{entry.durationMinutes}m <span className="text-muted-foreground font-normal ml-1">{format(entry.date, "MMM d, HH:mm")}</span></div>
+                                   <div className="text-muted-foreground mt-0.5 whitespace-pre-wrap">{entry.description}</div>
+                                 </div>
+                                 <div className="flex items-center gap-1 shrink-0">
+                                   {isLocked ? (
+                                      <Lock className="h-3 w-3 text-muted-foreground" />
+                                   ) : canEdit && (
+                                      <>
+                                        <Button variant="ghost" className="h-5 w-5 p-0" onClick={() => { setEditingEntryId(entry.id); setEditMinutes(entry.durationMinutes); setEditDesc(entry.description || ""); }}><Pencil className="h-3 w-3" /></Button>
+                                        <Button variant="ghost" className="h-5 w-5 p-0 text-destructive hover:text-destructive" onClick={async () => {
+                                           if (confirm("Delete this time log?")) await deleteTicketTimeEntry.mutateAsync({ entryId: entry.id, ticketId: ticket.id, minutes: entry.durationMinutes });
+                                        }}><Trash2 className="h-3 w-3" /></Button>
+                                      </>
+                                   )}
+                                 </div>
+                               </div>
+                            )}
+                         </div>
+                      );
+                   })}
+                 </div>
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+};
+
 export function TicketsList() {
   const { data: tickets, isLoading } = useTickets();
-  const { createTicket, updateTicket, deleteTicket } = useTicketMutations();
+  const { createTicket, updateTicket, deleteTicket, logTicketTime, updateTicketTimeEntry, deleteTicketTimeEntry } = useTicketMutations();
   const { data: clients } = useClients();
   const { updateClient } = useClientMutations();
   const { user } = useAuth();
@@ -155,19 +310,7 @@ export function TicketsList() {
     }
   };
 
-  const { addTime, pendingLogs } = useDebounceTimeLogger(5000);
 
-  const handleTimeSubmit = (ticketId: string, additionalMinutes: number) => {
-    const ticket = tickets?.find(t => t.id === ticketId);
-    if (!ticket) return;
-    const current = Number(ticket.timeLoggedMinutes) || 0;
-    const pending = pendingLogs[ticketId] || 0;
-    if (current + pending + additionalMinutes < 0) {
-      toast.error("Cannot reduce time below zero");
-      return;
-    }
-    addTime(ticketId, additionalMinutes);
-  };
 
   const handleClientClick = (clientId: string) => {
     const client = clients?.find((c) => c.id === clientId);
@@ -229,10 +372,10 @@ export function TicketsList() {
           <DropdownMenu>
             <DropdownMenuTrigger className="focus:outline-none">
               <Badge variant="outline" className={`cursor-pointer hover:opacity-80 transition-opacity
-                ${priority === 'critical' ? 'border-error text-error bg-error/10' : ''}
+                ${priority === 'critical' ? 'border-destructive text-destructive bg-destructive/10' : ''}
                 ${priority === 'high' ? 'border-orange-500 text-orange-500 bg-orange-500/10' : ''}
                 ${priority === 'medium' ? 'border-primary text-primary bg-primary/10' : ''}
-                ${priority === 'low' ? 'border-secondary text-secondary bg-secondary/10' : ''}
+                ${priority === 'low' ? 'border-secondary text-secondary-foreground bg-secondary/10' : ''}
               `}>
                 {priority.toUpperCase()}
               </Badge>
@@ -257,9 +400,9 @@ export function TicketsList() {
           <DropdownMenu>
             <DropdownMenuTrigger className="focus:outline-none">
               <Badge variant="secondary" className={`cursor-pointer hover:opacity-80 transition-opacity
-                ${status === 'open' ? 'bg-error text-background' : ''}
-                ${status === 'in_progress' ? 'bg-primary text-background' : ''}
-                ${status === 'resolved' ? 'bg-secondary text-background border-outline' : ''}
+                ${status === 'open' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+                ${status === 'in_progress' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}
+                ${status === 'resolved' ? 'bg-secondary text-secondary-foreground border-border' : ''}
               `}>
                  {status.replace('_', ' ').toUpperCase()}
               </Badge>
@@ -312,35 +455,14 @@ export function TicketsList() {
       cell: ({ row }) => {
         const ticket = row.original;
         const currentSavedMinutes = Number(row.getValue("timeLoggedMinutes") || 0);
-        const pending = pendingLogs[ticket.id!] || 0;
-        const minutes = currentSavedMinutes + pending;
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
-        return (
-          <div className="flex items-center gap-1 justify-center max-w-[120px]">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-error hover:bg-error/10" 
-              onClick={() => handleTimeSubmit(ticket.id!, -15)} 
-              title="Subtract 15 minutes"
-            >
-              <Minus className="h-3 w-3" />
-            </Button>
-            <span className="text-sm font-medium w-14 text-center cursor-default shrink-0">
-              {h > 0 ? `${h}h ${m}m` : `${m}m`}
-            </span>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10" 
-              onClick={() => handleTimeSubmit(ticket.id!, 15)} 
-              title="Add 15 minutes"
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-          </div>
-        );
+        return <TimeLoggedCell 
+                 ticket={ticket} 
+                 currentSavedMinutes={currentSavedMinutes} 
+                 logTicketTime={logTicketTime} 
+                 updateTicketTimeEntry={updateTicketTimeEntry} 
+                 deleteTicketTimeEntry={deleteTicketTimeEntry} 
+                 user={user} 
+               />
       }
     },
     {

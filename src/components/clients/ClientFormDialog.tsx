@@ -32,6 +32,7 @@ const clientSchema = z.object({
   contactPhone: z.string().min(5, "Contact phone is required."),
   status: z.enum(["active", "inactive"]),
   priorityCustomerId: z.string().optional(),
+  authorizedApprovers: z.string().optional(),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -70,6 +71,7 @@ export function ClientFormDialog({
       contactPhone: "",
       status: "active",
       priorityCustomerId: "",
+      authorizedApprovers: "",
     },
   });
 
@@ -85,6 +87,7 @@ export function ClientFormDialog({
         contactPhone: client.contactPhone,
         status: client.status,
         priorityCustomerId: client.priorityCustomerId || "",
+        authorizedApprovers: client.authorizedApprovers?.join(", ") || "",
       });
     } else {
       reset({
@@ -95,12 +98,20 @@ export function ClientFormDialog({
         contactPhone: "",
         status: "active",
         priorityCustomerId: "",
+        authorizedApprovers: "",
       });
     }
   }, [client, reset, open]);
 
   const onFormSubmit = handleSubmit(async (data) => {
-    await onSubmit(data);
+    const { authorizedApprovers, ...rest } = data;
+    const finalData: Partial<Client> = {
+       ...rest,
+       authorizedApprovers: authorizedApprovers 
+          ? authorizedApprovers.split(",").map(s => s.trim()).filter(Boolean)
+          : []
+    };
+    await onSubmit(finalData);
     onOpenChange(false);
   });
 
@@ -177,23 +188,30 @@ export function ClientFormDialog({
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="status">Status</Label>
-        <Select
-          value={statusValue}
-          onValueChange={(val: any) => setValue("status", val)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-        {errors.status && (
-          <p className="text-sm text-destructive">{errors.status.message}</p>
-        )}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="status">Status</Label>
+          <Select
+            value={statusValue}
+            onValueChange={(val: any) => setValue("status", val)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.status && (
+            <p className="text-sm text-destructive">{errors.status.message}</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="authorizedApprovers">Authorized Approvers</Label>
+          <Input id="authorizedApprovers" {...register("authorizedApprovers")} placeholder="e.g. John Doe, Jane Smith" />
+          <p className="text-xs text-muted-foreground">Separate multiple names with commas.</p>
+        </div>
       </div>
 
       <div className="flex justify-end space-x-2 pt-4">
